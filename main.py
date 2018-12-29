@@ -1,5 +1,4 @@
 import math
-#from numpy import *
 import cvxpy as cp
 import numpy as np
 from PIL import Image
@@ -19,7 +18,7 @@ def disorImg(image,blocksize):
     blocknum=colnum*rownum
 
     img2 = np.array(img)
-    img2 = img2[0:rownum*blocksize,0:colnum*blocksize,:]
+    img2 = img2[0:rownum*blocksize,0:colnum*blocksize,0:3]
     
     blockimages = np.zeros((blocksize, blocksize, 3, blocknum))
     disimage = np.zeros((rownum*blocksize,colnum*blocksize,3),dtype='uint8')
@@ -48,9 +47,7 @@ def computeDijo(blockimages, blocksize, n):
 		for t in range(n):
 			bitmp[:,:,:,t] = np.rot90(blockimages[:,:,:,t],o-1)
 			B[:,:,t] = np.rot90(B[:,:,t],o-1)
-		#bitmp = np.rot90(blockimages,o-1)
 		GiL = bitmp[:,blocksize-1,:,:] - bitmp[:,blocksize-2,:,:]
-		#GiL = np.reshape(GiL,(blocksize,3,n))
 		GiL = np.vstack(([GiL,B]))
 		uiL = np.mean(GiL,0)
 		uiL = uiL.T
@@ -61,15 +58,9 @@ def computeDijo(blockimages, blocksize, n):
 			invSiL[:,:,i] = np.linalg.inv(SiL)
 
 		for i in range(n):
-			#tmpGil = np.reshape(GiL[:,:,i],(blocksize,3))
-			#SiL = np.cov(tmpGil,rowvar=False)
-			#invSiL = np.linalg.inv(SiL)
 			for j in range(n):
 				GijLR = bitmp[:,0,:,j] - bitmp[:,blocksize-1,:,i]
-				#GijLR = np.reshape(GijLR, (blocksize,3))
 				tmp = GijLR-uiL[i,:]
-				#multmp= np.dot(tmp,invSiL[:,:,i])
-				#Dijo[i,j,o] = np.trace(np.dot(multmp,tmp.T))  
 				Dijo[i,j,o] = np.trace(tmp@invSiL[:,:,i]@tmp.T) 
 	return Dijo
 
@@ -111,50 +102,24 @@ def computeA(Dijo, U, n):
 
 	return [AA,A]
 
-'''
-def cvxSolve(Wijo,A,AA,Delo,n,num):
-	tmpAWijo = np.sum(A*Wijo,1)
-	tmpAWijo = np.reshape(tmpAWijo,(n*4))
-	i = [j for j in range(n)]
-	index = np.array(([i for j in range(4)]))
-	index = index.T
-	print(np.shape(tmpAWijo))
-	x = cp.Variable(n)
-	hijo = cp.Variable(n*4)
-	obj = cp.Minimize(sum(tmpAWijo*hijo))
-	constraints = [hijo >= np.reshape(x[index] - x[AA] - Delo,(4*n)), hijo >= np.reshape(x[AA] - x[index] +  Delo,(4*n))]
-	constraints.append(x>=0,x<=num-1)
-	prob = cp.Problem(obj, constraints)
-	prob.solve()
-	return x.value
-'''
-
 def cvxSolve(Wijo,A,AA,Delo,n,num):
 	tmpAWijo = np.sum(np.multiply(A,Wijo),1)
-	#tmpAWijo = np.reshape(tmpAWijo,(n,4))
-	#np.shape(tmpAWijo)
 	i = [j for j in range(n)]
 	index = np.array(([i for j in range(4)]))
 	index = index.T
 	x = cp.Variable(n)
 	hijo = cp.Variable((n,4))
-	#print(np.shape(tmpAWijo),np.shape(hijo))
 	obj = cp.Minimize(cp.sum(cp.multiply(tmpAWijo,hijo)))
 	constraints = [hijo >= x[index] - x[AA] - Delo, hijo >= x[AA] - x[index] +  Delo,x>=0,x<=num-1]
-	#constraints.append()
-	#constraints[0<=x<=num-1]
 	prob = cp.Problem(obj, constraints)
 	prob.solve()
 	return x.value
-
 
 def LPSolving(blocksize,blockimages,colnum,rownum):
 	n = blockimages.shape[3]
 
 	deloy = [0, -1, 0, 1]
 	delox = [1, 0, -1, 0]
-	#DeloX = np.array((np.zeros((n,n)),-1*np.ones((n,n)),np.zeros((n,n)),np.ones((n,n))))
-	#DeloY = np.array((np.ones((n,n)),np.zeros((n,n)),-1*np.ones((n,n)),np.zeros((n,n))))
 	DeloX = np.array(([delox for i in range(n)]))
 	DeloY = np.array(([deloy for i in range(n)]))
 	Dijo = computeDijo(blockimages,blocksize, n)
@@ -164,7 +129,6 @@ def LPSolving(blocksize,blockimages,colnum,rownum):
 	[AA,A] = computeA(Dijo, U, n)
 
 	for it in range(10):
-		# construct problem about x
 		x = cvxSolve(Wijo,A,AA,DeloX,n,rownum)
 		y = cvxSolve(Wijo,A,AA,DeloY,n,colnum)
 		for i in range(n):
@@ -185,22 +149,18 @@ def LPRecover(blocksize,blockimages,colnum,rownum):
     x = x.astype(np.int)
     y = y.astype(np.int)
     for i in range(n):
-        #recoverimg[y[i]*blocksize:(y[i]+1)*blocksize,x[i]*blocksize:(x[i]+1)*blocksize,:] = blockimages[:,:,:,i]
         recoverimg[x[i]*blocksize:(x[i]+1)*blocksize,y[i]*blocksize:(y[i]+1)*blocksize,:] = blockimages[:,:,:,i]
     return recoverimg
 
 if __name__== '__main__':
 	#read a image
-	#img = Image.open('2.png')
-	#img = Image.open('9.jpg')
-	img = Image.open('壁纸4.jpg')
-	#img = Image.open('lena.tif')
-	blocksize = 100
+	img = Image.open('./images/lena.tif')
+	blocksize = 64
 	[disimage,blockimages,colnum,rownum] = disorImg(img,blocksize)
+	recoverimg = LPRecover(blocksize,blockimages,colnum,rownum)
 	plt.figure(1)
 	plt.imshow(disimage)
 	plt.show()
-	recoverimg = LPRecover(blocksize,blockimages,colnum,rownum)
 	plt.figure(2)
 	plt.imshow(recoverimg)
 	plt.show()
