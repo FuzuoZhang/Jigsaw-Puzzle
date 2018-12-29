@@ -10,3 +10,7 @@ Files in the project:
 - images: Images which I used to test for my program.
 - test-output: Some samples (including the mixed images and the output images recovered by the program) performance well.
 - Paper: Two papers which I mainly referenced.
+
+![](Jigsaw-Puzzle/test-output/1-mixed.png)
+![](Jigsaw-Puzzle/test-output/1-output.png)
+      
