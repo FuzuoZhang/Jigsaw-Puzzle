@@ -11,7 +11,7 @@ Jigsaw Puzzle
 
 def disorImg(image,blocksize):
 	# image: original image
-	# blocksize: the size of the block image: blocksize x blocksize
+	# blocksize: the size of image block: blocksize x blocksize
 	# blockimages: the image pieces from the original image
 
     [w,h] = img.size 
@@ -37,7 +37,7 @@ def disorImg(image,blocksize):
     
     return [disimage,blockimages/255,colnum,rownum]
                           
-def computeDijo(blockimages,blocksize, n):
+def computeDijo(blockimages, blocksize, n):
 	# namely compute MGC
 	Dijo = np.zeros((n, n, 4))
 	B =np.zeros((3,3,n))
@@ -47,6 +47,7 @@ def computeDijo(blockimages,blocksize, n):
 		bitmp = np.zeros((blocksize,blocksize,3,n))
 		for t in range(n):
 			bitmp[:,:,:,t] = np.rot90(blockimages[:,:,:,t],o-1)
+			B[:,:,t] = np.rot90(B[:,:,t],o-1)
 		#bitmp = np.rot90(blockimages,o-1)
 		GiL = bitmp[:,blocksize-1,:,:] - bitmp[:,blocksize-2,:,:]
 		#GiL = np.reshape(GiL,(blocksize,3,n))
@@ -150,8 +151,8 @@ def cvxSolve(Wijo,A,AA,Delo,n,num):
 def LPSolving(blocksize,blockimages,colnum,rownum):
 	n = blockimages.shape[3]
 
-	delox = [0, -1, 0, 1]
-	deloy = [1, 0, -1, 0]
+	deloy = [0, -1, 0, 1]
+	delox = [1, 0, -1, 0]
 	#DeloX = np.array((np.zeros((n,n)),-1*np.ones((n,n)),np.zeros((n,n)),np.ones((n,n))))
 	#DeloY = np.array((np.ones((n,n)),np.zeros((n,n)),-1*np.ones((n,n)),np.zeros((n,n))))
 	DeloX = np.array(([delox for i in range(n)]))
@@ -162,16 +163,14 @@ def LPSolving(blocksize,blockimages,colnum,rownum):
 	U = np.ones((n,n,4))
 	[AA,A] = computeA(Dijo, U, n)
 
-	for it in range(5):
+	for it in range(10):
 		# construct problem about x
 		x = cvxSolve(Wijo,A,AA,DeloX,n,rownum)
 		y = cvxSolve(Wijo,A,AA,DeloY,n,colnum)
-		#print(x,"\n")
-		#print(y)
 		for i in range(n):
 			for j in range(n):
 				for o in range(4):
-					if(abs(x[i]-x[j]-delox[o])>1e-1 or abs(y[i]-y[j]-deloy[o])>1e-1):
+					if(abs(x[i]-x[j]-delox[o])>5e-1 or abs(y[i]-y[j]-deloy[o])>5e-1):
 						U[i][j][o] = 0
 		[AA,A] = computeA(Dijo, U, n)
 
@@ -180,7 +179,7 @@ def LPSolving(blocksize,blockimages,colnum,rownum):
 def LPRecover(blocksize,blockimages,colnum,rownum):
     n = blockimages.shape[3]
     [x, y] = LPSolving(blocksize,blockimages,colnum,rownum)
-    recoverimg = np.zeros((rownum*blocksize,colnum*blocksize,3))
+    recoverimg = np.ones((rownum*blocksize,colnum*blocksize,3))
     x = np.round(x - min(x))
     y = np.round(y - min(y))
     x = x.astype(np.int)
@@ -193,14 +192,14 @@ def LPRecover(blocksize,blockimages,colnum,rownum):
 if __name__== '__main__':
 	#read a image
 	#img = Image.open('2.png')
-	img = Image.open('8.jpg')
+	#img = Image.open('9.jpg')
+	img = Image.open('壁纸4.jpg')
 	#img = Image.open('lena.tif')
-	blocksize = 64
+	blocksize = 100
 	[disimage,blockimages,colnum,rownum] = disorImg(img,blocksize)
 	plt.figure(1)
 	plt.imshow(disimage)
 	plt.show()
-	#[x,y] = LPSolving(blocksize,blockimages,colnum,rownum)
 	recoverimg = LPRecover(blocksize,blockimages,colnum,rownum)
 	plt.figure(2)
 	plt.imshow(recoverimg)
